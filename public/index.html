@@ -412,9 +412,12 @@ input:focus,textarea:focus{outline:none;border-color:var(--sleep);box-shadow:0 0
 
   .wrap{padding:0 16px;}
   .topbar .inner{padding:12px 16px;}
-  .hero{padding:26px 0 22px;}
+  .hero{padding:26px 0 18px;}
   .hero-figure .big{font-size:2.6rem;}
   .hero-side{gap:16px;}
+  /* The hero's legend and the range control were sitting a full thumb apart on
+     a phone, for no reason other than desktop spacing carried over. */
+  .section-head{margin:22px 0 14px;}
 
   /* Four stat cells at phone width leave each one too narrow for "11:24p →
      6:52a", so fold to two rows. */
@@ -791,10 +794,15 @@ function renderHero(){
         <div class="k">Woken</div>
         <div class="v${woke ? ' warm' : ''}">${woke ? woke + '× · ' + M.formatDuration(d.awakeMinutes) : 'not once'}</div>
       </div>
-      <div>
+      ${
+        // Only shown when you actually gave an estimate. A "To drop off —" with
+        // nothing under it costs a whole line on a phone to say nothing; 0
+        // minutes, on the other hand, is an answer ("out cold") and stays.
+        n.sleepAt ? `<div>
         <div class="k">To drop off</div>
-        <div class="v">${d.latencyMinutes ? escapeHtml(M.formatDuration(d.latencyMinutes)) : '—'}</div>
-      </div>
+        <div class="v">${escapeHtml(M.formatDuration(d.latencyMinutes))}</div>
+      </div>` : ''
+      }
     </div>
     <div class="marks">${marks}</div>
     ${ribbonHtml(n, axis)}

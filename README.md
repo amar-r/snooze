@@ -11,6 +11,11 @@ thirty of them are your schedule drifting.
 One Node process, one HTML file, one JSON file. No build step, no framework, no
 charting library, no account, no cloud, no third-party requests.
 
+<p align="center">
+  <img src="docs/screenshot.png" width="840"
+       alt="Last night shown as 6h 55m with a ribbon across a clock axis from 11pm to 6am, a strip of thirty-night averages, and every night stacked below on the same axis with dotted guide lines at the median bedtime and wake time.">
+</p>
+
 ## Running it
 
 ```bash
@@ -81,6 +86,15 @@ drawn down the middle as guide lines. Switch between 14, 30, 90 and all nights
 and the averages, the medians, the guide lines and the axis all move with it. A
 night an hour shorter than your own median is marked. Tapping any row opens it
 for editing.
+
+It is built for a phone first — that's where you are when you log a night — and
+it follows your system's light or dark setting unless you pick one with the
+toggle.
+
+<p align="center">
+  <img src="docs/screenshot-phone.png" width="300"
+       alt="The same screen on a phone: the hero figure, the averages folded into two rows of two, and the stack of nightly ribbons beneath a full-width log button.">
+</p>
 
 ## Your data
 
