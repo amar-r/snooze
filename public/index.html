@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SNOOZE</title>
+<meta name="theme-color" content="#0B0D14">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230B0D14'/%3E%3Crect x='5' y='14' width='9' height='5' rx='1.5' fill='%237C86FF'/%3E%3Crect x='16' y='14' width='3' height='5' rx='1.5' fill='%23F2A65A'/%3E%3Crect x='21' y='14' width='6' height='5' rx='1.5' fill='%237C86FF'/%3E%3C/svg%3E">
+<script>
+(function(){
+  var saved = localStorage.getItem('snooze-theme');
+  if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+})();
+</script>
+<script src="metrics.js"></script>
+<link rel="stylesheet" href="vendor/fonts.css">
+<style>
+/* ---------------------------------------------------------------------------
+   Dark first. This is a thing you look at in a dim bedroom at 7am, so the dark
+   palette is the designed one and the light palette is the adaptation — the
+   reverse of how most of these get built.
+   --------------------------------------------------------------------------- */
+:root{
+  color-scheme: dark;
+  --bg:#0B0D14;
+  --bg-lift:#12151F;
+  --bg-sunk:#070910;
+  --hair:#1E2330;
+  --hair-strong:#2C3345;
+  --text:#E8EBF5;
+  --dim:#828AA3;
+  --faint:#4C5468;
+  --sleep:#7C86FF;
+  --sleep-deep:#5A63D8;
+  --sleep-glow:rgba(124,134,255,0.22);
+  --awake:#F2A65A;
+  --awake-dim:rgba(242,166,90,0.30);
+  --error:#FF8A72;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    color-scheme: light;
+    --bg:#F6F7FB;
+    --bg-lift:#FFFFFF;
+    --bg-sunk:#ECEEF5;
+    --hair:#E2E5EF;
+    --hair-strong:#CBD0E0;
+    --text:#161A26;
+    --dim:#5B6478;
+    --faint:#9AA1B5;
+    --sleep:#4E58D6;
+    --sleep-deep:#3A42B0;
+    --sleep-glow:rgba(78,88,214,0.14);
+    --awake:#C4761F;
+    --awake-dim:rgba(196,118,31,0.28);
+    --error:#C0392B;
+  }
+}
+:root[data-theme="light"]{
+  color-scheme: light;
+  --bg:#F6F7FB;
+  --bg-lift:#FFFFFF;
+  --bg-sunk:#ECEEF5;
+  --hair:#E2E5EF;
+  --hair-strong:#CBD0E0;
+  --text:#161A26;
+  --dim:#5B6478;
+  --faint:#9AA1B5;
+  --sleep:#4E58D6;
+  --sleep-deep:#3A42B0;
+  --sleep-glow:rgba(78,88,214,0.14);
+  --awake:#C4761F;
+  --awake-dim:rgba(196,118,31,0.28);
+  --error:#C0392B;
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#0B0D14;
+  --bg-lift:#12151F;
+  --bg-sunk:#070910;
+  --hair:#1E2330;
+  --hair-strong:#2C3345;
+  --text:#E8EBF5;
+  --dim:#828AA3;
+  --faint:#4C5468;
+  --sleep:#7C86FF;
+  --sleep-deep:#5A63D8;
+  --sleep-glow:rgba(124,134,255,0.22);
+  --awake:#F2A65A;
+  --awake-dim:rgba(242,166,90,0.30);
+  --error:#FF8A72;
+}
+
+*{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',system-ui,sans-serif;
+  overflow-x:hidden;
+  padding-bottom:calc(96px + env(safe-area-inset-bottom));
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:840px;margin:0 auto;padding:0 20px;}
+
+/* Numbers, times and labels are all mono — the whole interface is a readout,
+   and mixing proportional digits into it makes columns wobble as values change. */
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;}
+.eyebrow{
+  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:0.68rem;letter-spacing:0.16em;text-transform:uppercase;
+  color:var(--faint);
+}
+
+/* --- top bar ------------------------------------------------------------- */
+.topbar{
+  position:sticky;top:0;z-index:30;
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--hair);
+}
+.topbar .inner{
+  max-width:840px;margin:0 auto;padding:14px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.mark{
+  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:0.9rem;font-weight:500;letter-spacing:0.32em;text-transform:uppercase;
+  color:var(--text);
+}
+.mark i{color:var(--sleep);font-style:normal;}
+.ghost{
+  background:none;border:1px solid var(--hair-strong);border-radius:999px;
+  color:var(--dim);font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;
+  padding:6px 12px;cursor:pointer;
+}
+.ghost:hover{color:var(--text);border-color:var(--sleep);}
+
+/* --- hero ---------------------------------------------------------------- */
+.hero{padding:36px 0 30px;}
+.hero-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.hero-figure{
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:4px;
+}
+.hero-figure .big{
+  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:3.4rem;line-height:1;font-weight:500;letter-spacing:-0.03em;
+  color:var(--text);
+}
+.hero-figure .big .unit{font-size:1.5rem;color:var(--dim);margin-left:1px;}
+.hero-side{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:22px;}
+.hero-side .k{font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--faint);font-family:'JetBrains Mono',ui-monospace,monospace;}
+.hero-side .v{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:1rem;color:var(--text);margin-top:3px;}
+.hero-side .v.warm{color:var(--awake);}
+
+/* --- ribbons -------------------------------------------------------------
+   A night is drawn, not charted: one bar on a shared clock axis, solid where
+   you were asleep, warm where you were awake in bed, hatched where you were in
+   bed but not yet (or no longer) asleep. Stacked, the left and right edges of
+   thirty of them are the schedule drift.
+   ------------------------------------------------------------------------- */
+.ribbon{
+  position:relative;height:38px;border-radius:4px;
+  background:var(--bg-sunk);
+  overflow:hidden;
+}
+.ribbon.row-ribbon{height:16px;border-radius:3px;background:transparent;}
+.seg{position:absolute;top:0;bottom:0;}
+.seg.sleep{
+  background:linear-gradient(180deg,var(--sleep),var(--sleep-deep));
+  box-shadow:0 0 18px var(--sleep-glow);
+}
+.seg.brk{background:var(--awake);}
+.row-ribbon .seg.brk{background:var(--awake);min-width:2px;}
+/* In bed, not asleep: settling at the start, lying there at the end. Hatched
+   rather than filled, so it reads as "counted, but not sleep". */
+.seg.edge{
+  background:repeating-linear-gradient(
+    135deg, var(--awake-dim) 0 2px, transparent 2px 6px);
+  border-top:1px solid var(--awake-dim);
+  border-bottom:1px solid var(--awake-dim);
+}
+.ribbon.row-ribbon .seg.sleep{box-shadow:none;border-radius:2px;}
+
+.axis{position:relative;height:18px;margin-top:6px;}
+.axis .t{
+  position:absolute;top:0;transform:translateX(-50%);
+  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:0.66rem;color:var(--faint);white-space:nowrap;
+}
+.marks{position:relative;height:16px;margin-bottom:4px;}
+.marks .m{
+  position:absolute;bottom:0;transform:translateX(-50%);
+  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:0.64rem;color:var(--awake);white-space:nowrap;
+}
+.marks .m::after{
+  content:'';display:block;width:1px;height:5px;background:var(--awake);
+  margin:2px auto 0;
+}
+
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;}
+.legend span{display:flex;align-items:center;gap:7px;font-size:0.72rem;color:var(--faint);}
+.legend i{width:14px;height:8px;border-radius:2px;display:block;}
+.legend i.sleep{background:var(--sleep);}
+.legend i.brk{background:var(--awake);}
+.legend i.edge{background:repeating-linear-gradient(135deg,var(--awake-dim) 0 2px,transparent 2px 6px);border:1px solid var(--awake-dim);}
+
+/* --- stats strip --------------------------------------------------------- */
+.strip{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);
+}
+.strip .cell{padding:18px 0;border-left:1px solid var(--hair);padding-left:18px;}
+.strip .cell:first-child{border-left:none;padding-left:0;}
+.strip .n{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:1.35rem;color:var(--text);letter-spacing:-0.01em;}
+.strip .n .sub{font-size:0.8rem;color:var(--dim);}
+.strip .l{font-size:0.66rem;letter-spacing:0.11em;text-transform:uppercase;color:var(--faint);margin-top:5px;font-family:'JetBrains Mono',ui-monospace,monospace;}
+
+/* --- history ------------------------------------------------------------- */
+.section-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin:34px 0 16px;flex-wrap:wrap;
+}
+.range{display:flex;gap:0;border:1px solid var(--hair-strong);border-radius:999px;overflow:hidden;}
+.range button{
+  background:none;border:none;padding:6px 13px;cursor:pointer;
+  font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.68rem;
+  color:var(--dim);letter-spacing:0.06em;
+}
+.range button.on{background:var(--sleep);color:#fff;}
+
+/* Rows are a three-column grid so every ribbon starts and ends at the same x —
+   that shared column is what lets the guide lines below run straight down the
+   whole stack. */
+.stack{position:relative;}
+.night{
+  display:grid;grid-template-columns:62px 1fr 58px;align-items:center;gap:12px;
+  padding:5px 0;cursor:pointer;border-radius:4px;
+}
+.night:hover{background:var(--bg-lift);}
+.night .when{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.7rem;color:var(--dim);}
+.night .dur{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.74rem;color:var(--text);text-align:right;}
+.night.short .dur{color:var(--awake);}
+.night .rib{position:relative;}
+
+/* Guide lines sit over the ribbon column only, which is why the grid columns
+   above are fixed rather than content-sized. */
+.guides{position:absolute;top:0;bottom:0;left:74px;right:70px;pointer-events:none;}
+.guides .g{position:absolute;top:0;bottom:0;width:1px;background:var(--hair);}
+.guides .g.median{background:linear-gradient(180deg,var(--sleep) 0 3px,transparent 3px 7px);background-size:1px 7px;opacity:0.75;}
+.guide-labels{position:relative;height:16px;margin-bottom:2px;}
+.guide-labels .gl{
+  position:absolute;transform:translateX(-50%);
+  font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.62rem;color:var(--sleep);
+  white-space:nowrap;
+}
+.axis-head{display:grid;grid-template-columns:62px 1fr 58px;gap:12px;margin-bottom:2px;}
+
+.empty{
+  border:1px dashed var(--hair-strong);border-radius:6px;
+  padding:38px 20px;text-align:center;color:var(--dim);font-size:0.9rem;
+}
+
+.foot{
+  margin:34px 0 0;padding-top:18px;border-top:1px solid var(--hair);
+  display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.68rem;color:var(--faint);
+}
+.foot a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--hair-strong);}
+.foot a:hover{color:var(--sleep);border-color:var(--sleep);}
+
+/* --- log button ---------------------------------------------------------- */
+.log-btn{
+  position:fixed;z-index:40;
+  right:20px;bottom:calc(20px + env(safe-area-inset-bottom));
+  background:var(--sleep);color:#fff;border:none;border-radius:999px;
+  padding:14px 22px;font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:0.76rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:500;
+  cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,0.45);
+}
+.log-btn:hover{background:var(--sleep-deep);}
+
+/* --- sheet --------------------------------------------------------------- */
+dialog{
+  border:none;padding:0;background:transparent;color:var(--text);
+  max-width:none;max-height:none;width:100%;
+}
+dialog::backdrop{background:rgba(4,6,12,0.72);backdrop-filter:blur(3px);}
+.sheet{
+  background:var(--bg-lift);
+  border:1px solid var(--hair);
+  border-radius:12px;
+  width:min(560px,100%);
+  margin:0 auto;
+  padding:24px;
+  max-height:88vh;overflow-y:auto;
+}
+.sheet h2{
+  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:0.78rem;letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--dim);margin:0 0 20px;font-weight:500;
+}
+.f{margin-bottom:14px;}
+.f label, .f .lab{
+  display:block;font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:0.66rem;letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:6px;
+}
+.f label .opt{color:var(--faint);opacity:0.7;}
+input[type=date],input[type=time],input[type=number],input[type=text],textarea{
+  width:100%;height:44px;padding:10px 12px;
+  background:var(--bg-sunk);color:var(--text);
+  border:1px solid var(--hair);border-radius:6px;
+  font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.92rem;
+  /* iOS Safari centers date and time values and gives them their own metrics
+     unless the native appearance is reset; without this the four time fields
+     never line up with each other. */
+  -webkit-appearance:none;appearance:none;text-align:left;
+}
+textarea{height:auto;min-height:64px;resize:vertical;font-family:'Inter',sans-serif;font-size:0.92rem;}
+input:focus,textarea:focus{outline:none;border-color:var(--sleep);box-shadow:0 0 0 3px var(--sleep-glow);}
+.pair{display:flex;gap:12px;}
+.pair > .f{flex:1;min-width:0;}
+
+/* The date is nearly always today, so it opens filled in and steps a day at a
+   time. A calendar picker to change one field by one is a lot of taps for the
+   one thing this form already knows. */
+.datestep{
+  display:flex;align-items:center;height:44px;
+  background:var(--bg-sunk);border:1px solid var(--hair);border-radius:6px;
+  overflow:hidden;
+}
+.datestep button{
+  flex:0 0 44px;align-self:stretch;background:none;border:none;
+  color:var(--dim);font-size:1.2rem;line-height:1;cursor:pointer;
+}
+.datestep button:hover:not(:disabled){color:var(--sleep);background:var(--bg-lift);}
+.datestep button:disabled{color:var(--hair-strong);cursor:default;}
+.datestep .d{
+  flex:1;text-align:center;
+  font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.88rem;color:var(--text);
+}
+.datestep .d .rel{color:var(--dim);}
+
+/* Nobody knows the minute they fell asleep, so this field asks how long it
+   took — a thing you can actually estimate — and the four common answers are
+   one tap each. */
+.chips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.chips button{
+  background:none;border:1px solid var(--hair);border-radius:999px;
+  color:var(--dim);padding:6px 11px;cursor:pointer;
+  font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.66rem;letter-spacing:0.04em;
+}
+.chips button:hover{color:var(--text);border-color:var(--hair-strong);}
+.chips button.on{background:var(--sleep);border-color:var(--sleep);color:#fff;}
+
+/* The sheet's own ribbon: what you are typing, drawn the same way the history
+   below draws it. It is also the only place a mis-resolved day is visible
+   before it gets saved. */
+.echo{
+  background:var(--bg-sunk);border:1px solid var(--hair);border-radius:8px;
+  padding:14px;margin:6px 0 18px;
+}
+.echo .line{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.74rem;color:var(--text);}
+.echo .sub{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.68rem;color:var(--dim);margin-top:5px;}
+.echo.bad .line{color:var(--error);}
+.echo .ribbon{margin-top:10px;height:26px;}
+
+.brk-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.brk-row .bt{flex:0 0 118px;}
+.brk-row .bm{flex:0 0 84px;}
+.brk-row .br{flex:1;min-width:0;font-family:'Inter',sans-serif;}
+.brk-x{
+  flex:0 0 40px;height:44px;background:none;border:1px solid var(--hair);
+  border-radius:6px;color:var(--faint);cursor:pointer;font-size:1rem;
+}
+.brk-x:hover{color:var(--awake);border-color:var(--awake);}
+.add-brk{
+  width:100%;background:none;border:1px dashed var(--hair-strong);border-radius:6px;
+  color:var(--sleep);padding:11px;cursor:pointer;
+  font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;
+}
+.add-brk:hover{border-style:solid;border-color:var(--sleep);}
+.slept-through{font-size:0.8rem;color:var(--faint);margin-bottom:10px;}
+
+.sheet-actions{display:flex;align-items:center;gap:12px;margin-top:22px;flex-wrap:wrap;}
+.btn{
+  background:var(--sleep);color:#fff;border:none;border-radius:6px;
+  padding:13px 22px;cursor:pointer;
+  font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.74rem;
+  letter-spacing:0.08em;text-transform:uppercase;font-weight:500;
+}
+.btn:hover{background:var(--sleep-deep);}
+.btn:disabled{opacity:0.55;cursor:default;}
+.btn.quiet{background:none;color:var(--dim);border:1px solid var(--hair-strong);}
+.btn.quiet:hover{color:var(--text);background:none;border-color:var(--dim);}
+.btn.danger{background:none;color:var(--error);border:1px solid transparent;margin-left:auto;}
+.btn.danger:hover{background:none;border-color:var(--error);}
+.msg{color:var(--error);font-size:0.82rem;margin-top:12px;}
+.msg button{
+  background:none;border:none;color:var(--sleep);cursor:pointer;
+  font:inherit;text-decoration:underline;padding:0;
+}
+
+@media (max-width:640px){
+  /* iOS Safari zooms in on any focused input under 16px and never fully zooms
+     back out, which is what makes the layout look like it's drifting. */
+  input[type=date],input[type=time],input[type=number],input[type=text],textarea{font-size:16px;}
+
+  .wrap{padding:0 16px;}
+  .topbar .inner{padding:12px 16px;}
+  .hero{padding:26px 0 22px;}
+  .hero-figure .big{font-size:2.6rem;}
+  .hero-side{gap:16px;}
+
+  /* Four stat cells at phone width leave each one too narrow for "11:24p →
+     6:52a", so fold to two rows. */
+  .strip{grid-template-columns:repeat(2,1fr);}
+  .strip .cell{padding:14px 0 14px 14px;}
+  .strip .cell:nth-child(odd){border-left:none;padding-left:0;}
+  .strip .cell:nth-child(n+3){border-top:1px solid var(--hair);}
+
+  .night{grid-template-columns:50px 1fr 50px;gap:8px;}
+  .axis-head{grid-template-columns:50px 1fr 50px;gap:8px;}
+  .guides{left:58px;right:58px;}
+  .ribbon.row-ribbon{height:14px;}
+
+  dialog{align-self:flex-end;}
+  .sheet{
+    border-radius:14px 14px 0 0;border-bottom:none;
+    max-height:94vh;padding:20px 16px calc(24px + env(safe-area-inset-bottom));
+  }
+  /* Time and length side by side already fill a phone row, so the reason field
+     drops to its own line rather than being squeezed to nothing. */
+  .brk-row{flex-wrap:wrap;}
+  .brk-row .bt{flex:1 1 auto;}
+  .brk-row .bm{flex:0 1 84px;}
+  .brk-row .br{flex:1 1 100%;order:3;}
+  .log-btn{left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom));padding:15px;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="mark">snoo<i>z</i>e</span>
+    <button type="button" class="ghost" id="theme-toggle" aria-label="Toggle colour theme">Auto</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <section class="hero" id="hero"></section>
+
+  <!-- The range sits above everything it governs: the averages and the stack
+       both answer to it. Only the hero above is fixed, because "last night" is
+       last night whatever window you're looking at. -->
+  <div class="section-head">
+    <span class="eyebrow" id="range-label">Last 30 nights</span>
+    <div class="range" id="range">
+      <button type="button" data-days="14">14</button>
+      <button type="button" data-days="30" class="on">30</button>
+      <button type="button" data-days="90">90</button>
+      <button type="button" data-days="0">All</button>
+    </div>
+  </div>
+
+  <div class="strip" id="strip"></div>
+
+  <div id="history"></div>
+
+  <div class="foot">
+    <span id="foot-count"></span>
+    <span><a href="/api/export">json</a> &nbsp;·&nbsp; <a href="/api/export/csv">csv</a></span>
+  </div>
+</div>
+
+<button type="button" class="log-btn" id="open-log">+ Log a night</button>
+
+<dialog id="sheet">
+  <form method="dialog" class="sheet" id="sheet-form">
+    <h2 id="sheet-title">Log a night</h2>
+
+    <div class="f">
+      <span class="lab">Morning of <span class="opt">— the day you woke up</span></span>
+      <div class="datestep">
+        <button type="button" id="date-prev" aria-label="Previous morning">&lsaquo;</button>
+        <span class="d" id="date-label" aria-live="polite"></span>
+        <button type="button" id="date-next" aria-label="Next morning">&rsaquo;</button>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="f">
+        <label for="f-bed">In bed</label>
+        <input type="time" id="f-bed">
+      </div>
+      <div class="f">
+        <label for="f-wake">Woke</label>
+        <input type="time" id="f-wake">
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="f">
+        <label for="f-latency">Took to drop off <span class="opt">(opt)</span></label>
+        <input type="number" id="f-latency" min="0" max="720" inputmode="numeric" placeholder="min">
+        <div class="chips" id="latency-chips">
+          <button type="button" data-min="0">out cold</button>
+          <button type="button" data-min="15">15m</button>
+          <button type="button" data-min="30">30m</button>
+          <button type="button" data-min="60">1h</button>
+        </div>
+      </div>
+      <div class="f">
+        <label for="f-up">Up <span class="opt">(opt)</span></label>
+        <input type="time" id="f-up">
+      </div>
+    </div>
+
+    <div class="echo" id="echo"><div class="line">Times go in, the night comes back.</div></div>
+
+    <div class="f">
+      <span class="lab">Woke during the night</span>
+      <div id="brks"></div>
+      <div class="slept-through" id="slept-through">Slept through.</div>
+      <button type="button" class="add-brk" id="add-brk">+ Add</button>
+    </div>
+
+    <div class="f">
+      <label for="f-notes">Notes</label>
+      <textarea id="f-notes" placeholder="hot room, late dinner, noisy street"></textarea>
+    </div>
+
+    <div class="sheet-actions">
+      <button type="button" class="btn" id="save-btn">Save</button>
+      <button type="button" class="btn quiet" id="cancel-btn">Cancel</button>
+      <button type="button" class="btn danger" id="delete-btn" style="display:none;">Delete</button>
+    </div>
+    <div class="msg" id="msg" style="display:none;"></div>
+  </form>
+</dialog>
+
+<script>
+const M = window.SleepMetrics;
+
+let nights = [];
+let rangeDays = 30;
+let editingId = null;
+
+const THEME_KEY = 'snooze-theme';
+const HOUR = 3600000;
+
+function pad(n){ return String(n).padStart(2,'0'); }
+function dateValue(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function timeValue(d){ return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function el(id){ return document.getElementById(id); }
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s === null || s === undefined ? '' : s;
+  return d.innerHTML;
+}
+
+// --- theme -----------------------------------------------------------------
+
+function updateThemeLabel(){
+  const stored = localStorage.getItem(THEME_KEY);
+  el('theme-toggle').textContent = stored === 'light' ? 'Light' : stored === 'dark' ? 'Dark' : 'Auto';
+}
+updateThemeLabel();
+
+el('theme-toggle').addEventListener('click', () => {
+  const stored = localStorage.getItem(THEME_KEY);
+  const next = stored === 'dark' ? 'light' : stored === 'light' ? null : 'dark';
+  if (next) {
+    localStorage.setItem(THEME_KEY, next);
+    document.documentElement.dataset.theme = next;
+  } else {
+    localStorage.removeItem(THEME_KEY);
+    delete document.documentElement.dataset.theme;
+  }
+  updateThemeLabel();
+});
+
+// ---------------------------------------------------------------------------
+// The clock axis
+//
+// Every ribbon is positioned against one shared axis measured in hours since
+// noon of the evening a night began, so 23:10 is 11.17 and 06:45 the next
+// morning is 18.75. Anchoring at noon rather than midnight is what stops a
+// night wrapping around the end of the axis, and it means the left edge of the
+// stack is bedtime and the right edge is waking, for every row.
+//
+// Positions are wall-clock, deliberately: the ribbon answers "when were you
+// asleep" and has to line up with the tick labels. Durations elsewhere are
+// elapsed time, so on the two DST nights a year the two disagree by an hour —
+// the duration is the one that's true, and the ribbon is the one that matches
+// the clock on the wall.
+// ---------------------------------------------------------------------------
+
+function dayIndex(d){ return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000; }
+
+function originOf(night){
+  const bed = M.bedStart(night);
+  if (!bed) return null;
+  const o = new Date(bed.getFullYear(), bed.getMonth(), bed.getDate(), 12, 0, 0, 0);
+  // A bedtime in the small hours belongs to the evening before it, so the
+  // origin steps back a day rather than putting the night at hour -10.
+  if (bed.getHours() < 12) o.setDate(o.getDate() - 1);
+  return o;
+}
+
+function hoursFrom(origin, d){
+  if (!origin || !d) return null;
+  return (dayIndex(d) - dayIndex(origin)) * 24 + d.getHours() + d.getMinutes() / 60 - 12;
+}
+
+// Segments of one night, in order, each tagged with what was happening.
+function segmentsOf(night){
+  const bedFrom = M.bedStart(night);
+  const bedTo = M.bedEnd(night);
+  const sleepFrom = M.sleepStart(night);
+  const sleepTo = M.sleepEnd(night);
+  if (!bedFrom || !bedTo || !sleepFrom || !sleepTo) return [];
+
+  const out = [];
+  if (sleepFrom > bedFrom) out.push({ kind: 'edge', from: bedFrom, to: sleepFrom });
+
+  // The breaks come from metrics.js already clipped to the sleep window and
+  // merged, which is what guarantees the ribbon adds up to the duration printed
+  // beside it however carelessly the interruptions were typed.
+  let cursor = sleepFrom;
+  for (const b of M.awakeIntervals(night)) {
+    if (b.from > cursor) out.push({ kind: 'sleep', from: cursor, to: b.from });
+    out.push({ kind: 'brk', from: b.from, to: b.to });
+    if (b.to > cursor) cursor = b.to;
+  }
+  if (sleepTo > cursor) out.push({ kind: 'sleep', from: cursor, to: sleepTo });
+  if (bedTo > sleepTo) out.push({ kind: 'edge', from: sleepTo, to: bedTo });
+
+  return out;
+}
+
+function axisFor(list){
+  let lo = Infinity, hi = -Infinity;
+  list.forEach(n => {
+    const o = originOf(n);
+    const a = hoursFrom(o, M.bedStart(n));
+    const b = hoursFrom(o, M.bedEnd(n));
+    if (a !== null) lo = Math.min(lo, a);
+    if (b !== null) hi = Math.max(hi, b);
+  });
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return { lo: 10, hi: 20 };
+  lo = Math.floor(lo * 2) / 2 - 0.25;
+  hi = Math.ceil(hi * 2) / 2 + 0.25;
+  if (hi - lo < 4) hi = lo + 4;
+  return { lo, hi };
+}
+
+function pct(axis, h){
+  return ((h - axis.lo) / (axis.hi - axis.lo)) * 100;
+}
+
+// Axis hours run from noon, so hour 12 is midnight and hour 24 is noon again.
+function clockLabelFor(h){
+  const total = ((h + 12) % 24 + 24) % 24;
+  let hr = Math.floor(total);
+  const mins = Math.round((total - hr) * 60);
+  const suffix = hr < 12 ? 'a' : 'p';
+  let display = hr % 12;
+  if (display === 0) display = 12;
+  return mins ? `${display}:${pad(mins)}${suffix}` : `${display}${suffix}`;
+}
+
+function clockOf(d){
+  if (!d) return '—';
+  let hr = d.getHours();
+  const suffix = hr < 12 ? 'a' : 'p';
+  let display = hr % 12;
+  if (display === 0) display = 12;
+  return `${display}:${pad(d.getMinutes())}${suffix}`;
+}
+
+function ribbonHtml(night, axis, extraClass){
+  const o = originOf(night);
+  const segs = segmentsOf(night).map(s => {
+    const from = pct(axis, hoursFrom(o, s.from));
+    const to = pct(axis, hoursFrom(o, s.to));
+    const width = Math.max(to - from, 0.35);
+    return `<div class="seg ${s.kind}" style="left:${from.toFixed(2)}%;width:${width.toFixed(2)}%"></div>`;
+  }).join('');
+  return `<div class="ribbon ${extraClass || ''}">${segs}</div>`;
+}
+
+function tickStep(axis){
+  const span = axis.hi - axis.lo;
+  return span > 14 ? 3 : span > 8 ? 2 : 1;
+}
+
+function axisHtml(axis){
+  const step = tickStep(axis);
+  const ticks = [];
+  const first = Math.ceil(axis.lo / step) * step;
+  for (let h = first; h <= axis.hi; h += step) {
+    const p = pct(axis, h);
+    if (p < 2 || p > 98) continue;
+    ticks.push(`<span class="t" style="left:${p.toFixed(2)}%">${clockLabelFor(h)}</span>`);
+  }
+  return `<div class="axis">${ticks.join('')}</div>`;
+}
+
+// --- summary numbers -------------------------------------------------------
+
+function daysAgo(dateStr){
+  const then = M.parseLocal(dateStr + 'T00:00');
+  if (!then) return Infinity;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  return Math.round((today - then) / 86400000);
+}
+
+function withinDays(days){
+  if (!days) return nights.slice();
+  return nights.filter(n => daysAgo(n.date) < days && daysAgo(n.date) >= 0);
+}
+
+function average(values){
+  const nums = values.filter(v => Number.isFinite(v));
+  if (!nums.length) return null;
+  return nums.reduce((a,b) => a + b, 0) / nums.length;
+}
+
+function median(values){
+  const nums = values.filter(v => Number.isFinite(v)).sort((a,b) => a - b);
+  if (!nums.length) return null;
+  const mid = Math.floor(nums.length / 2);
+  return nums.length % 2 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
+}
+
+// --- render ----------------------------------------------------------------
+
+function longDate(dateStr){
+  const d = M.parseLocal(dateStr + 'T00:00');
+  if (!d) return dateStr || '';
+  return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function renderHero(){
+  const host = el('hero');
+  const n = nights[0];
+  if (!n) {
+    host.innerHTML = `
+      <div class="hero-head"><span class="eyebrow">Nothing logged yet</span></div>
+      <div class="empty">Log this morning and the night gets drawn here.</div>`;
+    return;
+  }
+
+  const d = M.all(n);
+  const axis = axisFor([n]);
+  const o = originOf(n);
+
+  const marks = M.interruptions(n).map(i => {
+    const at = M.parseLocal(i.at);
+    if (!at) return '';
+    const p = pct(axis, hoursFrom(o, at));
+    return `<span class="m" style="left:${p.toFixed(2)}%">${escapeHtml(clockOf(at))}</span>`;
+  }).join('');
+
+  const woke = d.interruptionCount;
+  host.innerHTML = `
+    <div class="hero-head">
+      <span class="eyebrow">Last night · ${escapeHtml(longDate(n.date))}</span>
+    </div>
+    <div class="hero-figure">
+      <span class="big">${escapeHtml(M.formatDuration(d.asleepMinutes))}</span>
+    </div>
+    <div class="hero-side">
+      <div>
+        <div class="k">In bed</div>
+        <div class="v">${escapeHtml(clockOf(M.bedStart(n)))} → ${escapeHtml(clockOf(M.bedEnd(n)))}</div>
+      </div>
+      <div>
+        <div class="k">Efficiency</div>
+        <div class="v">${M.efficiencyPct(n) === null ? '—' : M.efficiencyPct(n) + '%'}</div>
+      </div>
+      <div>
+        <div class="k">Woken</div>
+        <div class="v${woke ? ' warm' : ''}">${woke ? woke + '× · ' + M.formatDuration(d.awakeMinutes) : 'not once'}</div>
+      </div>
+      <div>
+        <div class="k">To drop off</div>
+        <div class="v">${d.latencyMinutes ? escapeHtml(M.formatDuration(d.latencyMinutes)) : '—'}</div>
+      </div>
+    </div>
+    <div class="marks">${marks}</div>
+    ${ribbonHtml(n, axis)}
+    ${axisHtml(axis)}
+    ${n.notes ? `<div class="hero-side" style="margin-top:14px;margin-bottom:0;"><div><div class="k">Note</div><div class="v" style="font-family:Inter,sans-serif;color:var(--dim);">${escapeHtml(n.notes)}</div></div></div>` : ''}
+    <div class="legend">
+      <span><i class="sleep"></i>asleep</span>
+      <span><i class="brk"></i>awake</span>
+      <span><i class="edge"></i>in bed, not asleep</span>
+    </div>`;
+}
+
+// Every number here is computed over the selected range, so the strip and the
+// stack below it are always describing the same set of nights.
+function renderStrip(list){
+  const host = el('strip');
+
+  const avgSleep = average(list.map(n => M.asleepMinutes(n)));
+  const avgEff = average(list.map(n => M.efficiency(n)));
+  const avgWoken = average(list.map(n => M.interruptions(n).length));
+  const medBed = median(list.map(n => hoursFrom(originOf(n), M.bedStart(n))));
+  const medWake = median(list.map(n => hoursFrom(originOf(n), M.sleepEnd(n))));
+
+  const cells = [
+    ['Avg sleep', avgSleep === null ? '—' : M.formatDuration(avgSleep)],
+    ['Avg efficiency', M.pctLabel(avgEff, list.every(n => M.efficiencyPct(n) === 100))],
+    ['Woken / night', avgWoken === null ? '—' : (Math.round(avgWoken * 10) / 10).toFixed(1) + '×'],
+    ['Usual night', medBed === null ? '—' : `${clockLabelFor(medBed)}<span class="sub"> → </span>${clockLabelFor(medWake)}`]
+  ];
+
+  host.innerHTML = cells.map(([label, value]) =>
+    `<div class="cell"><div class="n">${value}</div><div class="l">${escapeHtml(label)}</div></div>`
+  ).join('');
+}
+
+function renderHistory(list){
+  const host = el('history');
+  el('foot-count').textContent = `${nights.length} night${nights.length === 1 ? '' : 's'} logged`;
+
+  if (!list.length) {
+    host.innerHTML = `<div class="empty">No nights in this range.</div>`;
+    return;
+  }
+
+  const axis = axisFor(list);
+  const medBed = median(list.map(n => hoursFrom(originOf(n), M.bedStart(n))));
+  const medWake = median(list.map(n => hoursFrom(originOf(n), M.sleepEnd(n))));
+
+  // A night is called short against your own median, not against a number off
+  // a sleep-hygiene poster.
+  const medSleep = median(list.map(n => M.asleepMinutes(n)));
+
+  const rows = list.map(n => {
+    const asleep = M.asleepMinutes(n);
+    const short = medSleep !== null && asleep !== null && asleep < medSleep - 60;
+    const d = M.parseLocal(n.date + 'T00:00');
+    const label = d ? `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${d.getDate()}` : n.date;
+    return `<div class="night${short ? ' short' : ''}" data-id="${escapeHtml(n.id)}" role="button" tabindex="0">
+      <span class="when">${escapeHtml(label)}</span>
+      <span class="rib">${ribbonHtml(n, axis, 'row-ribbon')}</span>
+      <span class="dur">${escapeHtml(M.formatDuration(asleep))}</span>
+    </div>`;
+  }).join('');
+
+  const guideLabels = medBed === null ? '' :
+    `<div class="axis-head"><span></span><span class="guide-labels">
+       <span class="gl" style="left:${pct(axis, medBed).toFixed(2)}%">${clockLabelFor(medBed)}</span>
+       <span class="gl" style="left:${pct(axis, medWake).toFixed(2)}%">${clockLabelFor(medWake)}</span>
+     </span><span></span></div>`;
+
+  const guides = medBed === null ? '' :
+    `<div class="guides">
+       <div class="g median" style="left:${pct(axis, medBed).toFixed(2)}%"></div>
+       <div class="g median" style="left:${pct(axis, medWake).toFixed(2)}%"></div>
+     </div>`;
+
+  host.innerHTML = `${guideLabels}
+    <div class="stack">${guides}${rows}</div>
+    <div class="axis-head"><span></span>${axisHtml(axis)}<span></span></div>`;
+}
+
+// One list, drawn twice: as numbers in the strip and as ribbons in the stack.
+// Anything that changes the range goes through here so the two can't disagree.
+function renderRange(){
+  const list = withinDays(rangeDays);
+  el('range-label').textContent = rangeDays
+    ? `Last ${rangeDays} nights · ${list.length} logged`
+    : `All ${nights.length} night${nights.length === 1 ? '' : 's'}`;
+  renderStrip(list);
+  renderHistory(list);
+}
+
+function render(){
+  renderHero();
+  renderRange();
+}
+
+async function load(){
+  try {
+    const res = await fetch('/api/nights');
+    nights = await res.json();
+    if (!Array.isArray(nights)) nights = [];
+  } catch (e) {
+    console.error('Failed to load nights', e);
+    nights = [];
+  }
+  render();
+}
+
+el('range').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button[data-days]');
+  if (!b) return;
+  rangeDays = Number(b.dataset.days);
+  document.querySelectorAll('#range button').forEach(x => x.classList.toggle('on', x === b));
+  renderRange();
+});
+
+el('history').addEventListener('click', (ev) => {
+  const row = ev.target.closest('.night');
+  if (row) openSheet(row.dataset.id);
+});
+el('history').addEventListener('keydown', (ev) => {
+  if (ev.key !== 'Enter' && ev.key !== ' ') return;
+  const row = ev.target.closest('.night');
+  if (row) { ev.preventDefault(); openSheet(row.dataset.id); }
+});
+
+// ---------------------------------------------------------------------------
+// The sheet
+//
+// One date and four clock times go in; the day each time belongs to is worked
+// out here, once, and full timestamps are what get saved. Bedtime lands on the
+// evening before when it reads 12:00 or later; every other time is the first
+// occurrence of that clock time at or after bedtime.
+// ---------------------------------------------------------------------------
+
+function atOrAfter(anchor, hhmm){
+  if (!anchor || !hhmm) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  const d = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), h, m, 0, 0);
+  if (d < anchor) d.setDate(d.getDate() + 1);
+  return d;
+}
+
+function resolveBedAt(dateStr, bedTime){
+  if (!dateStr || !bedTime) return null;
+  const [y, mo, da] = dateStr.split('-').map(Number);
+  const [h, mi] = bedTime.split(':').map(Number);
+  if (![y, mo, da, h, mi].every(Number.isFinite)) return null;
+  const d = new Date(y, mo - 1, da, h, mi, 0, 0);
+  if (h >= 12) d.setDate(d.getDate() - 1);
+  return d;
+}
+
+// The morning being logged. Held here rather than read out of an input,
+// because there is no longer an input to read it out of.
+let sheetDate = dateValue(new Date());
+
+function todayValue(){
+  return dateValue(new Date());
+}
+
+function setSheetDate(dateStr){
+  sheetDate = dateStr || todayValue();
+  const d = M.parseLocal(sheetDate + 'T00:00') || new Date();
+  const today = todayValue();
+
+  // Yesterday is computed by stepping a Date, not by subtracting from the
+  // string, so it stays right across month ends and DST.
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  const yesterday = dateValue(y);
+
+  const rel = sheetDate === today ? 'Today' : sheetDate === yesterday ? 'Yesterday' : '';
+  const label = d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  el('date-label').innerHTML = (rel ? `<span class="rel">${rel} · </span>` : '') + escapeHtml(label);
+
+  // There is no such thing as logging tomorrow morning's sleep.
+  el('date-next').disabled = sheetDate >= today;
+  updateEcho();
+}
+
+function stepSheetDate(days){
+  const d = M.parseLocal(sheetDate + 'T00:00');
+  if (!d) return;
+  d.setDate(d.getDate() + days);
+  setSheetDate(dateValue(d));
+}
+
+el('date-prev').addEventListener('click', () => stepSheetDate(-1));
+el('date-next').addEventListener('click', () => stepSheetDate(1));
+
+function readSheet(){
+  const dateStr = sheetDate;
+  const bedAt = resolveBedAt(dateStr, el('f-bed').value);
+  const wakeAt = atOrAfter(bedAt, el('f-wake').value);
+  const upAt = atOrAfter(bedAt, el('f-up').value);
+
+  // The record stores the moment you fell asleep, but you can't know that —
+  // what you can estimate is how long it took. Add it to bedtime here, so the
+  // stored shape stays a timestamp and only the question you're asked changes.
+  const latency = el('f-latency').value;
+  const mins = latency === '' ? null : Number(latency);
+  const sleepAt = bedAt && Number.isFinite(mins) && mins >= 0
+    ? new Date(bedAt.getTime() + mins * 60000)
+    : null;
+
+  const interruptions = [...document.querySelectorAll('#brks .brk-row')].map(row => {
+    const at = atOrAfter(bedAt, row.querySelector('.bt').value);
+    const mins = row.querySelector('.bm').value;
+    return {
+      at: at ? M.toLocalString(at) : '',
+      minutes: mins === '' ? 0 : Number(mins),
+      reason: row.querySelector('.br').value.trim()
+    };
+  }).filter(i => i.at);
+
+  return {
+    date: dateStr,
+    bedAt: bedAt ? M.toLocalString(bedAt) : '',
+    sleepAt: sleepAt ? M.toLocalString(sleepAt) : '',
+    wakeAt: wakeAt ? M.toLocalString(wakeAt) : '',
+    upAt: upAt ? M.toLocalString(upAt) : '',
+    interruptions,
+    notes: el('f-notes').value
+  };
+}
+
+function stamp(d){
+  return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + clockOf(d);
+}
+
+function updateEcho(){
+  const host = el('echo');
+  const night = readSheet();
+  const bed = M.parseLocal(night.bedAt);
+  const wake = M.parseLocal(night.wakeAt);
+
+  host.classList.remove('bad');
+  if (!night.date || !bed || !wake) {
+    host.innerHTML = '<div class="line">Times go in, the night comes back.</div>';
+    return;
+  }
+  if (wake <= bed) {
+    host.classList.add('bad');
+    host.innerHTML = '<div class="line">Woke before you got in bed — check those two.</div>';
+    return;
+  }
+  const sleep = M.parseLocal(night.sleepAt);
+  if (sleep && sleep > wake) {
+    host.classList.add('bad');
+    host.innerHTML = '<div class="line">Still dropping off by the time you woke — that\'s longer than the night.</div>';
+    return;
+  }
+
+  const d = M.all(night);
+  const bits = [
+    `${M.formatDuration(d.asleepMinutes)} asleep`,
+    `${M.efficiencyPct(night) === null ? '—' : M.efficiencyPct(night) + '%'} of ${M.formatDuration(d.inBedMinutes)} in bed`
+  ];
+  if (d.interruptionCount) bits.push(`up ${d.interruptionCount}× for ${M.formatDuration(d.awakeMinutes)}`);
+
+  const axis = axisFor([night]);
+  host.innerHTML =
+    `<div class="line">${escapeHtml(stamp(bed))} &rarr; ${escapeHtml(stamp(wake))}</div>` +
+    `<div class="sub">${escapeHtml(bits.join(' · '))}</div>` +
+    ribbonHtml(night, axis);
+}
+
+function addBreakRow(values){
+  const row = document.createElement('div');
+  row.className = 'brk-row';
+  row.innerHTML =
+    '<input type="time" class="bt" aria-label="Woke at">' +
+    '<input type="number" class="bm" min="0" max="1440" inputmode="numeric" placeholder="min" aria-label="Minutes awake">' +
+    '<input type="text" class="br" placeholder="why (optional)" aria-label="Reason">' +
+    '<button type="button" class="brk-x" aria-label="Remove">&times;</button>';
+
+  if (values) {
+    row.querySelector('.bt').value = values.time || '';
+    row.querySelector('.bm').value = values.minutes === null || values.minutes === undefined ? '' : values.minutes;
+    row.querySelector('.br').value = values.reason || '';
+  }
+
+  row.querySelectorAll('input').forEach(i => i.addEventListener('input', updateEcho));
+  row.querySelector('.brk-x').addEventListener('click', () => {
+    row.remove();
+    syncBreaks();
+    updateEcho();
+  });
+
+  el('brks').appendChild(row);
+  syncBreaks();
+  return row;
+}
+
+function syncBreaks(){
+  const any = document.querySelectorAll('#brks .brk-row').length > 0;
+  el('slept-through').style.display = any ? 'none' : 'block';
+}
+
+el('add-brk').addEventListener('click', () => {
+  addBreakRow().querySelector('.bt').focus();
+});
+
+['f-bed','f-latency','f-wake','f-up'].forEach(id => {
+  el(id).addEventListener('input', updateEcho);
+});
+
+function syncLatencyChips(){
+  const v = el('f-latency').value;
+  document.querySelectorAll('#latency-chips button').forEach(b => {
+    b.classList.toggle('on', v !== '' && Number(b.dataset.min) === Number(v));
+  });
+}
+
+el('latency-chips').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button[data-min]');
+  if (!b) return;
+  // Tapping the chip that's already set clears it — otherwise there's no way
+  // back to "didn't note it" once you've touched one.
+  const already = b.classList.contains('on');
+  el('f-latency').value = already ? '' : b.dataset.min;
+  syncLatencyChips();
+  updateEcho();
+});
+
+el('f-latency').addEventListener('input', syncLatencyChips);
+
+function openSheet(id){
+  const sheet = el('sheet');
+  el('msg').style.display = 'none';
+  el('brks').innerHTML = '';
+
+  const night = id ? nights.find(n => String(n.id) === String(id)) : null;
+  editingId = night ? night.id : null;
+
+  if (night) {
+    // Stored times carry their day, but the fields only show a clock — the day
+    // comes back out of `date` through the same rule on save.
+    const timeOf = (ts) => { const d = M.parseLocal(ts); return d ? timeValue(d) : ''; };
+    el('sheet-title').textContent = 'Edit night';
+    el('f-bed').value = timeOf(night.bedAt);
+    // Stored as a moment, edited as a duration — turn it back into the answer
+    // that was actually given.
+    el('f-latency').value = night.sleepAt ? String(M.latencyMinutes(night) ?? '') : '';
+    el('f-wake').value = timeOf(night.wakeAt);
+    el('f-up').value = timeOf(night.upAt);
+    el('f-notes').value = night.notes || '';
+    M.interruptions(night).forEach(i => addBreakRow({ time: timeOf(i.at), minutes: i.minutes, reason: i.reason }));
+    el('delete-btn').style.display = 'inline-block';
+    setSheetDate(night.date || todayValue());
+  } else {
+    el('sheet-title').textContent = 'Log a night';
+    ['f-bed','f-latency','f-wake','f-up','f-notes'].forEach(x => el(x).value = '');
+    el('delete-btn').style.display = 'none';
+    // Recomputed on every open, not once at page load — a tab left open
+    // overnight would otherwise still offer to log yesterday morning.
+    setSheetDate(todayValue());
+  }
+
+  syncBreaks();
+  syncLatencyChips();
+  updateEcho();
+  // Re-entrant: the 409 path reopens the sheet onto the night that's already
+  // logged while this one is still up, and showModal() on an open dialog throws.
+  if (!sheet.open) sheet.showModal();
+}
+
+function closeSheet(){
+  el('sheet').close();
+  editingId = null;
+}
+
+el('open-log').addEventListener('click', () => openSheet(null));
+el('cancel-btn').addEventListener('click', closeSheet);
+
+// A dialog closes on Escape by itself; keep the editing id from outliving it.
+el('sheet').addEventListener('close', () => { editingId = null; });
+
+el('save-btn').addEventListener('click', saveNight);
+
+// The sheet is a <form method="dialog">, so Enter in a field would otherwise
+// close it and throw away what was typed. Save on Enter instead.
+el('sheet-form').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  saveNight();
+});
+
+async function saveNight(){
+  const msg = el('msg');
+  msg.style.display = 'none';
+
+  const night = readSheet();
+  if (!night.date || !night.bedAt || !night.wakeAt) {
+    msg.textContent = 'A night needs a date, a bedtime and a wake time.';
+    msg.style.display = 'block';
+    return;
+  }
+
+  const btn = el('save-btn');
+  btn.disabled = true;
+  try {
+    const url = editingId ? '/api/nights/' + encodeURIComponent(editingId) : '/api/nights';
+    const res = await fetch(url, {
+      method: editingId ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(night)
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      // 409 is this morning already being logged. Offer the night that's there
+      // rather than leaving you to go and find it.
+      if (res.status === 409 && body.existingId) {
+        btn.disabled = false;
+        msg.innerHTML = escapeHtml(body.error) + ' ';
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.textContent = 'Open it';
+        open.addEventListener('click', async () => { await load(); openSheet(body.existingId); });
+        msg.appendChild(open);
+        msg.style.display = 'block';
+        return;
+      }
+      throw new Error(body.error || ('server returned ' + res.status));
+    }
+  } catch (e) {
+    msg.textContent = 'Could not save — ' + e.message;
+    msg.style.display = 'block';
+    btn.disabled = false;
+    return;
+  }
+
+  btn.disabled = false;
+  closeSheet();
+  await load();
+}
+
+el('delete-btn').addEventListener('click', async () => {
+  if (!editingId) return;
+  if (!confirm('Delete this night?')) return;
+  try {
+    await fetch('/api/nights/' + encodeURIComponent(editingId), { method: 'DELETE' });
+  } catch (e) {
+    console.error('Failed to delete', e);
+  }
+  closeSheet();
+  await load();
+});
+
+load();
+</script>
+</body>
+</html>

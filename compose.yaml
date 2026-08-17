@@ -1,0 +1,17 @@
+services:
+  snooze:
+    image: mrrthr/snooze:latest
+    container_name: snooze
+    restart: unless-stopped
+    ports:
+      - "8430:8430"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PORT=8430
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8430/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
