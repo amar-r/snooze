@@ -190,11 +190,22 @@ body{
   font-family:'JetBrains Mono',ui-monospace,monospace;
   font-size:0.66rem;color:var(--faint);white-space:nowrap;
 }
-.marks{position:relative;height:16px;margin-bottom:4px;}
+/* Tall enough for the longest stamp stood on its end: six characters at this
+   size, plus the leader under it. */
+.marks{position:relative;height:46px;margin-bottom:4px;}
 .marks .m{
   position:absolute;bottom:0;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;
   font-family:'JetBrains Mono',ui-monospace,monospace;
-  font-size:0.64rem;color:var(--awake);white-space:nowrap;
+  font-size:0.64rem;color:var(--awake);
+}
+/* Turned on its side. Lying down a stamp is six characters wide and two
+   wakings a quarter of an hour apart write over each other; standing up it is
+   one character wide, so they clear each other by construction and nothing has
+   to be measured or moved out of the way. */
+.marks .m .t{
+  writing-mode:vertical-rl;transform:rotate(180deg);
+  white-space:nowrap;line-height:1;
 }
 .marks .m::after{
   content:'';display:block;width:1px;height:5px;background:var(--awake);
@@ -699,9 +710,15 @@ function ribbonHtml(night, axis, extraClass){
   return `<div class="ribbon ${extraClass || ''}">${segs}</div>`;
 }
 
+// Hours are the unit you actually read off this — "what time did I go to bed"
+// is an hour question — so the axis is hourly wherever hourly fits. The label
+// is three characters against a ribbon that is a couple of hundred pixels wide
+// on a phone, which runs out somewhere past eleven hours; only then does it
+// step up, and a range wide enough to need that is a range you are reading for
+// its shape rather than its clock times.
 function tickStep(axis){
   const span = axis.hi - axis.lo;
-  return span > 14 ? 3 : span > 8 ? 2 : 1;
+  return span > 17 ? 3 : span > 11 ? 2 : 1;
 }
 
 function axisHtml(axis){
@@ -746,9 +763,25 @@ function median(values){
 
 // --- render ----------------------------------------------------------------
 
-function longDate(dateStr){
-  const d = M.parseLocal(dateStr + 'T00:00');
-  if (!d) return dateStr || '';
+// A night is stored under the morning you woke up — that key is what makes one
+// night per day enforceable, and it is what the CSV carries — but it is *named*
+// after the day it was when you got into bed. In bed at 22:30 on Monday is
+// Monday night; in bed at 00:49 is Tuesday, because by then it already was.
+//
+// That is read off `bedAt` rather than counted back a day from the key, because
+// counting back gets the after-midnight case wrong. `bedAt` has already had its
+// day resolved at save time, so all this asks is which calendar day the stamp
+// landed on.
+function nightDay(night){
+  const bed = M.parseLocal(night && night.bedAt);
+  if (bed) return new Date(bed.getFullYear(), bed.getMonth(), bed.getDate());
+  // No bedtime to read yet — the sheet, mid-typing. Fall back to the key.
+  return M.parseLocal(((night && night.date) || '') + 'T00:00');
+}
+
+function longDate(night){
+  const d = nightDay(night);
+  if (!d) return (night && night.date) || '';
   return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
@@ -770,13 +803,13 @@ function renderHero(){
     const at = M.parseLocal(i.at);
     if (!at) return '';
     const p = pct(axis, hoursFrom(o, at));
-    return `<span class="m" style="left:${p.toFixed(2)}%">${escapeHtml(clockOf(at))}</span>`;
+    return `<span class="m" style="left:${p.toFixed(2)}%"><span class="t">${escapeHtml(clockOf(at))}</span></span>`;
   }).join('');
 
   const woke = d.interruptionCount;
   host.innerHTML = `
     <div class="hero-head">
-      <span class="eyebrow">Last night · ${escapeHtml(longDate(n.date))}</span>
+      <span class="eyebrow">Last night · ${escapeHtml(longDate(n))}</span>
     </div>
     <div class="hero-figure">
       <span class="big">${escapeHtml(M.formatDuration(d.asleepMinutes))}</span>
@@ -858,7 +891,7 @@ function renderHistory(list){
   const rows = list.map(n => {
     const asleep = M.asleepMinutes(n);
     const short = medSleep !== null && asleep !== null && asleep < medSleep - 60;
-    const d = M.parseLocal(n.date + 'T00:00');
+    const d = nightDay(n);
     const label = d ? `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${d.getDate()}` : n.date;
     return `<div class="night${short ? ' short' : ''}" data-id="${escapeHtml(n.id)}" role="button" tabindex="0">
       <span class="when">${escapeHtml(label)}</span>
@@ -968,6 +1001,9 @@ function todayValue(){
 
 function setSheetDate(dateStr){
   sheetDate = dateStr || todayValue();
+  // The stepper picks a morning, so it is labelled as one. The night's own name
+  // depends on the bedtime, which hasn't been typed yet when this first draws —
+  // #echo below is where the resolved night appears.
   const d = M.parseLocal(sheetDate + 'T00:00') || new Date();
   const today = todayValue();
 

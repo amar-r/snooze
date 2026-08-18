@@ -12,10 +12,32 @@ First working version.
   asleep, because nobody can know the second one. The record still stores a
   moment (bedtime plus the estimate), so only the question changed. Four common
   answers are one tap each.
-- The date opens on today and steps a day at a time — no calendar picker for a
-  field that is nearly always already right, and no way to log tomorrow morning.
-- A night is filed under the morning you woke up and the sheet takes plain clock
-  times, which is ambiguous across midnight — so bedtime resolves to the evening
+- The night opens on last night and steps a day at a time — no calendar picker
+  for a field that is nearly always already right, and no way to log a night you
+  haven't slept yet.
+- A night is named on screen after the day it was when you got into bed, not
+  the morning it ended. Waking on Tuesday from a night that started 22:30 on
+  Monday, calling the entry "Tuesday" read as a mistake every time you looked at
+  the stack. The name is taken from the bedtime rather than by counting a day
+  back off the key, because counting back is only right for the half of nights
+  that start before midnight: in bed at 00:49, it really is already Tuesday, and
+  the old label was the correct one. Two adjacent nights can now carry the same
+  name — one begun at 00:49 and the next at 23:30 — which is what actually
+  happened. The stored key is untouched: still the morning you woke up, still
+  what makes one night per day enforceable, still what the CSV carries.
+- The time axis is labelled by the hour rather than every second hour. Bedtime
+  is a thing you read to the hour, and against two-hourly ticks half of them had
+  to be estimated by eye off the gap between labels. It steps back up to two-
+  and three-hourly only when the range is wide enough that hourly labels would
+  print into each other.
+- Interruption stamps above the hero ribbon are turned on their side. Two
+  wakings sixteen minutes apart printed over each other and neither could be
+  read: lying down a stamp is six characters wide, which is far more of the axis
+  than a quarter of an hour. Stood on end it is one character wide, so it takes
+  a collision of minutes rather than of hours, and nothing has to be measured
+  after layout or shuffled out of the way to get there.
+- A night is stored under the morning you woke up and the sheet takes plain
+  clock times, which is ambiguous across midnight — so bedtime resolves to the evening
   before when it reads as an evening, everything else to the first occurrence
   after bedtime, and the resolved night is drawn back to you in the sheet before
   you save. Getting this wrong silently is the failure mode the whole design is

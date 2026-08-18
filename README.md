@@ -40,7 +40,8 @@ There is no login. Put it on a LAN or a VPN, not on the open internet.
 
 Fill it in when you wake up. The only required fields are the date, the time you
 got in bed, and the time you woke — everything else is optional and the numbers
-still work without it. The date opens on today and steps a day at a time.
+still work without it. The night opens on last night and steps a day at a
+time.
 
 You are never asked for anything you can't know. The time you fell asleep isn't
 one of those things, so the sheet asks roughly how long you took to drop off
@@ -48,14 +49,24 @@ instead, the way a paper sleep diary does; that gets added to your bedtime and
 stored as a moment. Interruption lengths are estimates too, and are treated as
 such.
 
-A night is filed under **the morning you woke up**, and the times you type are
-plain clock times. Bedtime lands on the evening before if it reads as an evening
-(12:00 or later), and every other time is the first occurrence of that clock
-time after bedtime. So a night logged under Saturday the 15th with "in bed
-23:10, woke 06:45" runs from Friday evening to Saturday morning, and one with
-"in bed 01:30, woke 09:00" runs from Saturday's small hours to Saturday morning.
-The line under the times shows the night it all resolved to, so you can catch a
-wrong day before saving rather than a month later in the stack.
+You give a night the morning you woke up, and the times you type are plain clock
+times. Bedtime lands on the evening before if it reads as an evening (12:00 or
+later), and every other time is the first occurrence of that clock time after
+bedtime. So a night logged under Saturday the 15th with "in bed 23:10, woke
+06:45" runs from Friday evening to Saturday morning, and one with "in bed 01:30,
+woke 09:00" runs from Saturday's small hours to Saturday morning. The line under
+the times shows the night it all resolved to, so you can catch a wrong day
+before saving rather than a month later in the stack.
+
+On screen, a night is **named after the day it was when you got in bed** — the
+first of those two is Friday night, the second Saturday, because by 01:30 it
+already was Saturday. Two nights in a row can therefore carry the same name, if
+one began just after midnight and the next just before; that is a fact about
+your bedtimes rather than a mistake.
+
+Underneath, a night is stored and exported under the morning you woke up — that
+is the `date` column in the CSV, and it is what makes one-night-per-day
+enforceable. Only the labels on screen follow the bedtime.
 
 One night per morning. Trying to save a second one for a date you've already
 logged offers to open the existing night for editing instead.

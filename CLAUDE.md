@@ -73,7 +73,19 @@ paints awake time over sleep — and the `sleep` segments must add up to
 This is the thing to not break. A night crosses midnight, so a clock time on its
 own is ambiguous.
 
-- A night is keyed by `date`, **the morning you woke up**.
+- A night is keyed by `date`, **the morning you woke up**. That key is what
+  makes one-night-per-day enforceable and it is what the CSV exports; it never
+  moves.
+- A night is *labelled* after **the day it was when you got into bed** — the
+  calendar day of `bedAt`, via `nightDay()` in `public/index.html`. In bed 22:30
+  Monday is Monday night; in bed 00:49 is Tuesday, because by then it was. The
+  hero and the stack both go through `nightDay()`, so they can't disagree.
+  Don't "simplify" this to `date` minus a day: that is right only for the
+  before-midnight case and misnames every night that starts in the small hours.
+  Two adjacent nights *can* draw the same label — one starting 00:49, the next
+  23:30 the same day — which is a true statement about when you went to bed, not
+  a bug to clamp. The sheet's stepper is deliberately still labelled by the
+  morning: it picks the morning, and the bedtime it would need isn't typed yet.
 - `sleepAt` is stored as a moment but is never *asked* for as one: the sheet
   collects a "took to drop off" estimate in minutes and adds it to `bedAt`, and
   the edit path turns it back into minutes with `latencyMinutes()`. Don't put a
