@@ -86,6 +86,14 @@ own is ambiguous.
   23:30 the same day — which is a true statement about when you went to bed, not
   a bug to clamp. The sheet's stepper is deliberately still labelled by the
   morning: it picks the morning, and the bedtime it would need isn't typed yet.
+- Because the key is the morning, **two nights that share a calendar day are
+  normal**: 02:00–05:00 keys to that morning, and getting into bed again at
+  21:00 the same evening keys to the next one. `maxSheetDate()` lets the stepper
+  reach tomorrow morning, and `defaultSheetDate()` opens a fresh sheet on the
+  first morning not already logged, so turning in lands on the right night
+  without touching the stepper. Don't pin the stepper back to today, and don't
+  gate tomorrow on the time of day: either one drops you onto a morning that is
+  already logged, which is the collision this exists to remove.
 - `sleepAt` is stored as a moment but is never *asked* for as one: the sheet
   collects a "took to drop off" estimate in minutes and adds it to `bedAt`, and
   the edit path turns it back into minutes with `latencyMinutes()`. Don't put a
@@ -104,6 +112,29 @@ Durations are Date subtraction on those stamps, so DST is handled by
 construction — a spring-forward night really does come out an hour shorter.
 Don't reintroduce clock arithmetic on `HH:mm` strings.
 
+## A night in progress
+
+A night may be stored with a `bedAt` and no `wakeAt`. That is a night logged as
+it starts and finished in the morning — the point being that the bedtime is
+recorded when it is known rather than reconstructed at breakfast.
+
+`M.isOpen()` is the one test for it, and everything downstream already falls out
+of the existing null handling: `sleepEnd()` is null, so duration, efficiency and
+`segmentsOf()` are null or empty, and the CSV columns come out blank rather than
+zero. Don't make an open night report a zero anywhere — a blank says "not
+finished", a zero says "you slept none of it".
+
+An open night is drawn as its own card above the hero (`renderPending()`) and is
+filtered out of the stack, the averages and the counts by `finishedNights()`.
+It has no ribbon to draw, and a row with an empty ribbon and a dash for the
+hours reads as a broken night rather than an unfinished one. That card is the
+only way back into it, so it has to keep rendering *every* open night, not just
+the newest.
+
+Server-side, an open night's interruptions and `sleepAt` are held to 24 hours
+from `bedAt` instead of to a wake time, which is also what stops one growing
+past a night when it is finished late. `upAt` without `wakeAt` is refused.
+
 ## Invariants worth not breaking
 
 - `readNights()` throws on a corrupt file rather than returning `[]`. Returning
@@ -115,8 +146,8 @@ Don't reintroduce clock arithmetic on `HH:mm` strings.
 - One night per `date`, enforced with a 409 on both POST and PUT. Two records
   for one morning means every average counts that night twice.
 - Nights that can't be true (wake before bed, span over 24h, an interruption
-  outside the night) are refused, not clamped. One bad night distorts every
-  average instead of showing up as a hole.
+  outside the night, out of bed with no wake time) are refused, not clamped.
+  One bad night distorts every average instead of showing up as a hole.
 - Derived values are computed in `public/metrics.js` and never stored.
 - Anything user-entered that gets rendered back into the page goes through
   `escapeHtml()` (aliased to `esc` in the night-list renderer).

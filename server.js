@@ -88,7 +88,7 @@ function optionalTime(value, label) {
   return requireTime(value, label);
 }
 
-function normalizeInterruptions(raw, bedFrom, bedTo) {
+function normalizeInterruptions(raw, bedFrom, bedTo, openNight) {
   if (isBlank(raw)) return [];
   if (!Array.isArray(raw)) throw new ValidationError('interruptions must be a list');
   if (raw.length > MAX_INTERRUPTIONS) {
@@ -104,7 +104,9 @@ function normalizeInterruptions(raw, bedFrom, bedTo) {
     // typo'd date, and it would count awake minutes against a night you weren't
     // in bed for. Reject rather than clamp: clamping hides which end was wrong.
     if (at < bedFrom || at > bedTo) {
-      throw new ValidationError(`${label} at ${item.at} falls outside the night (in bed to out of bed)`);
+      throw new ValidationError(openNight
+        ? `${label} at ${item.at} is not inside the night you're logging — it starts when you got in bed and can't run more than 24 hours`
+        : `${label} at ${item.at} falls outside the night (in bed to out of bed)`);
     }
 
     let minutes = 0;
@@ -134,39 +136,62 @@ function normalizeNight(body) {
 
   const date = String(body.date || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !M.parseLocal(`${date}T00:00`)) {
-    throw new ValidationError('date must be a real calendar date like 2026-08-15 (the morning you woke up)');
+    throw new ValidationError('date must be a real calendar date like 2026-08-15 (the morning you woke, or will wake)');
   }
 
   const bedAt = requireTime(body.bedAt, 'Time in bed');
-  const wakeAt = requireTime(body.wakeAt, 'Wake time');
+  // Optional, because a night can be logged as it starts. Getting into bed is
+  // the one thing you can record at the time; when you woke is a question only
+  // the morning can answer, and holding the record open until then beats
+  // reconstructing a bedtime from memory over breakfast. A night without a
+  // wake time is unfinished, not broken — every derived number reads null
+  // until it is filled in.
+  const wakeAt = optionalTime(body.wakeAt, 'Wake time');
   const sleepAt = optionalTime(body.sleepAt, 'Time fell asleep');
   const upAt = optionalTime(body.upAt, 'Time out of bed');
 
-  if (wakeAt <= bedAt) {
+  if (wakeAt && wakeAt <= bedAt) {
     throw new ValidationError('Wake time must be after the time you got in bed');
   }
-  if (sleepAt && (sleepAt < bedAt || sleepAt > wakeAt)) {
+  // Out of bed without a wake time is a half-answered night rather than an
+  // in-progress one, and there'd be no way to draw it: `upAt` is the far end of
+  // the in-bed span and `wakeAt` is the far end of the sleep inside it.
+  if (!wakeAt && upAt) {
+    throw new ValidationError('Add the time you woke before the time you got out of bed');
+  }
+  if (sleepAt && (sleepAt < bedAt || (wakeAt && sleepAt > wakeAt))) {
     throw new ValidationError('Time you fell asleep must be between getting in bed and waking');
   }
-  if (upAt && upAt < wakeAt) {
+  if (upAt && wakeAt && upAt < wakeAt) {
     throw new ValidationError('Time out of bed cannot be before you woke');
   }
 
+  // While the night is open there is no far end yet, so everything inside it is
+  // held to 24 hours from bedtime instead. That is the same ceiling a finished
+  // night gets, and it means an unfinished night can never quietly grow past
+  // one: filling in a wake time a day and a half later is refused below.
+  const DAY = 24 * 60 * 60 * 1000;
   const bedTo = upAt || wakeAt;
-  const hours = (bedTo - bedAt) / (60 * 60 * 1000);
+  const horizon = bedTo || new Date(bedAt.getTime() + DAY);
+  const hours = (horizon - bedAt) / (60 * 60 * 1000);
   // 24h is not a night, it's a mistyped date — and left in, it would outweigh a
   // fortnight of real ones in every average on the page.
   if (hours > 24) {
     throw new ValidationError('That night spans more than 24 hours — check the dates on the times');
+  }
+  // Only bites on an open night: with a wake time, the check above it is
+  // tighter than this one.
+  if (sleepAt && sleepAt > horizon) {
+    throw new ValidationError('Time you fell asleep must be between getting in bed and waking');
   }
 
   const night = {
     date,
     bedAt: M.toLocalString(bedAt),
     sleepAt: sleepAt ? M.toLocalString(sleepAt) : '',
-    wakeAt: M.toLocalString(wakeAt),
+    wakeAt: wakeAt ? M.toLocalString(wakeAt) : '',
     upAt: upAt ? M.toLocalString(upAt) : '',
-    interruptions: normalizeInterruptions(body.interruptions, bedAt, bedTo),
+    interruptions: normalizeInterruptions(body.interruptions, bedAt, horizon, !bedTo),
     notes: isBlank(body.notes) ? '' : String(body.notes).slice(0, MAX_NOTES)
   };
 

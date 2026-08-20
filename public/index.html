@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>SNOOZE</title>
 <meta name="theme-color" content="#0B0D14">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230B0D14'/%3E%3Crect x='5' y='14' width='9' height='5' rx='1.5' fill='%237C86FF'/%3E%3Crect x='16' y='14' width='3' height='5' rx='1.5' fill='%23F2A65A'/%3E%3Crect x='21' y='14' width='6' height='5' rx='1.5' fill='%237C86FF'/%3E%3C/svg%3E">
+<!-- Real files rather than a data: URI, because iOS won't take an inline SVG
+     for a home-screen icon: it wants a PNG it can fetch. `apple-touch-icon.png`
+     is full-bleed — iOS rounds and masks it itself — while the tab icons carry
+     their own corners. -->
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/icon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <script>
 (function(){
   var saved = localStorage.getItem('snooze-theme');
@@ -137,6 +144,30 @@ body{
   padding:6px 12px;cursor:pointer;
 }
 .ghost:hover{color:var(--text);border-color:var(--sleep);}
+
+/* --- a night in progress -------------------------------------------------
+   Logged at bedtime, still missing its far end. It sits above the hero rather
+   than in the stack because it has no duration to draw yet — a row with an
+   empty ribbon and a dash where the hours go reads as a broken night rather
+   than an unfinished one. Warm-edged, because it is the one thing on the page
+   asking you for something. */
+#pending:empty{display:none;}
+#pending{padding-top:22px;}
+.pending{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  width:100%;text-align:left;font:inherit;color:var(--text);cursor:pointer;
+  background:var(--bg-lift);border:1px solid var(--hair-strong);
+  border-left:3px solid var(--awake);border-radius:8px;padding:13px 16px;
+}
+.pending + .pending{margin-top:8px;}
+.pending:hover{border-color:var(--sleep);border-left-color:var(--awake);}
+.pending .eyebrow{display:block;color:var(--awake);margin-bottom:5px;}
+.pending .line{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.78rem;}
+.pending .cta{
+  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--sleep);
+  white-space:nowrap;
+}
 
 /* --- hero ---------------------------------------------------------------- */
 .hero{padding:36px 0 30px;}
@@ -467,6 +498,8 @@ input:focus,textarea:focus{outline:none;border-color:var(--sleep);box-shadow:0 0
 </div>
 
 <div class="wrap">
+  <section id="pending"></section>
+
   <section class="hero" id="hero"></section>
 
   <!-- The range sits above everything it governs: the averages and the stack
@@ -499,7 +532,7 @@ input:focus,textarea:focus{outline:none;border-color:var(--sleep);box-shadow:0 0
     <h2 id="sheet-title">Log a night</h2>
 
     <div class="f">
-      <span class="lab">Morning of <span class="opt">— the day you woke up</span></span>
+      <span class="lab">Morning of <span class="opt" id="date-hint">— the day you woke up</span></span>
       <div class="datestep">
         <button type="button" id="date-prev" aria-label="Previous morning">&lsaquo;</button>
         <span class="d" id="date-label" aria-live="polite"></span>
@@ -513,7 +546,7 @@ input:focus,textarea:focus{outline:none;border-color:var(--sleep);box-shadow:0 0
         <input type="time" id="f-bed">
       </div>
       <div class="f">
-        <label for="f-wake">Woke</label>
+        <label for="f-wake">Woke <span class="opt">(or fill in later)</span></label>
         <input type="time" id="f-wake">
       </div>
     </div>
@@ -743,9 +776,18 @@ function daysAgo(dateStr){
   return Math.round((today - then) / 86400000);
 }
 
+// A night still in progress has no duration, no efficiency and no ribbon, so
+// it stays out of every average and out of the stack until its wake time
+// arrives. It is not hidden while it waits — the banner above the hero is where
+// it lives, and that is also how you get back into it to finish it.
+function finishedNights(){
+  return nights.filter(n => !M.isOpen(n));
+}
+
 function withinDays(days){
-  if (!days) return nights.slice();
-  return nights.filter(n => daysAgo(n.date) < days && daysAgo(n.date) >= 0);
+  const done = finishedNights();
+  if (!days) return done;
+  return done.filter(n => daysAgo(n.date) < days && daysAgo(n.date) >= 0);
 }
 
 function average(values){
@@ -785,9 +827,32 @@ function longDate(night){
   return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
+// Every night that has been started and not finished, newest first. Normally
+// there is one, or none. More than one means a night got left open — drawing
+// them all is what keeps a forgotten one reachable instead of stranded in the
+// file with nothing on the page pointing at it.
+function renderPending(){
+  const host = el('pending');
+  host.innerHTML = nights.filter(n => M.isOpen(n)).map(n => {
+    const woke = M.interruptions(n).length;
+    const bits = [`In bed ${clockOf(M.bedStart(n))}`, longDate(n)];
+    if (woke) bits.push(`up ${woke}×`);
+    return `<button type="button" class="pending" data-id="${escapeHtml(n.id)}">
+      <span>
+        <span class="eyebrow">Night in progress</span>
+        <span class="line">${escapeHtml(bits.join(' · '))}</span>
+      </span>
+      <span class="cta">Add when you woke &rarr;</span>
+    </button>`;
+  }).join('');
+}
+
 function renderHero(){
   const host = el('hero');
-  const n = nights[0];
+  // The newest *finished* night. An unfinished one is newer but has nothing to
+  // show, and "last night" with a dash where the hours go is worse than the
+  // real last night one row further back.
+  const n = finishedNights()[0];
   if (!n) {
     host.innerHTML = `
       <div class="hero-head"><span class="eyebrow">Nothing logged yet</span></div>
@@ -873,7 +938,8 @@ function renderStrip(list){
 
 function renderHistory(list){
   const host = el('history');
-  el('foot-count').textContent = `${nights.length} night${nights.length === 1 ? '' : 's'} logged`;
+  const total = finishedNights().length;
+  el('foot-count').textContent = `${total} night${total === 1 ? '' : 's'} logged`;
 
   if (!list.length) {
     host.innerHTML = `<div class="empty">No nights in this range.</div>`;
@@ -923,12 +989,13 @@ function renderRange(){
   const list = withinDays(rangeDays);
   el('range-label').textContent = rangeDays
     ? `Last ${rangeDays} nights · ${list.length} logged`
-    : `All ${nights.length} night${nights.length === 1 ? '' : 's'}`;
+    : `All ${list.length} night${list.length === 1 ? '' : 's'}`;
   renderStrip(list);
   renderHistory(list);
 }
 
 function render(){
+  renderPending();
   renderHero();
   renderRange();
 }
@@ -951,6 +1018,11 @@ el('range').addEventListener('click', (ev) => {
   rangeDays = Number(b.dataset.days);
   document.querySelectorAll('#range button').forEach(x => x.classList.toggle('on', x === b));
   renderRange();
+});
+
+el('pending').addEventListener('click', (ev) => {
+  const card = ev.target.closest('.pending');
+  if (card) openSheet(card.dataset.id);
 });
 
 el('history').addEventListener('click', (ev) => {
@@ -999,6 +1071,43 @@ function todayValue(){
   return dateValue(new Date());
 }
 
+// Relative days are stepped through a Date rather than computed off the
+// string, so month ends and DST can't produce a day that doesn't exist.
+function shiftDays(days){
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return dateValue(d);
+}
+
+// The furthest morning the stepper will go to: tomorrow's. Beyond that is not a
+// night you could be getting into bed for.
+//
+// It reaches a morning that hasn't happened yet at any hour of the day, and
+// that is deliberate. Gating it on the clock — only past noon, say — sounds
+// tidier and is wrong: deciding over breakfast to record the bedtime you are
+// heading for tonight is the same record either way, and refusing it drops you
+// back onto a morning that is already logged, which is the collision this is
+// here to remove.
+function maxSheetDate(){
+  return shiftDays(1);
+}
+
+// The morning a fresh sheet opens on: the first one not already logged. Usually
+// that is this morning. With this morning already filled in it is tomorrow's —
+// the next night you'll get into bed for. That is what makes a second entry on
+// one calendar day work: 02:00–05:00 this morning and 21:00 tonight are two
+// different mornings, and so two different records.
+function defaultSheetDate(){
+  const max = maxSheetDate();
+  let d = todayValue();
+  while (d < max && nights.some(n => n.date === d)) {
+    const step = M.parseLocal(d + 'T00:00');
+    step.setDate(step.getDate() + 1);
+    d = dateValue(step);
+  }
+  return d;
+}
+
 function setSheetDate(dateStr){
   sheetDate = dateStr || todayValue();
   // The stepper picks a morning, so it is labelled as one. The night's own name
@@ -1007,18 +1116,18 @@ function setSheetDate(dateStr){
   const d = M.parseLocal(sheetDate + 'T00:00') || new Date();
   const today = todayValue();
 
-  // Yesterday is computed by stepping a Date, not by subtracting from the
-  // string, so it stays right across month ends and DST.
-  const y = new Date();
-  y.setDate(y.getDate() - 1);
-  const yesterday = dateValue(y);
-
-  const rel = sheetDate === today ? 'Today' : sheetDate === yesterday ? 'Yesterday' : '';
+  const rel = sheetDate === today ? 'Today'
+    : sheetDate === shiftDays(-1) ? 'Yesterday'
+    : sheetDate === shiftDays(1) ? 'Tomorrow' : '';
   const label = d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
   el('date-label').innerHTML = (rel ? `<span class="rel">${rel} · </span>` : '') + escapeHtml(label);
 
-  // There is no such thing as logging tomorrow morning's sleep.
-  el('date-next').disabled = sheetDate >= today;
+  // A morning still ahead of you is one you can only be logging the start of.
+  el('date-hint').textContent = sheetDate > today
+    ? '— the day you\'ll wake up'
+    : '— the day you woke up';
+
+  el('date-next').disabled = sheetDate >= maxSheetDate();
   updateEcho();
 }
 
@@ -1079,8 +1188,18 @@ function updateEcho(){
   const wake = M.parseLocal(night.wakeAt);
 
   host.classList.remove('bad');
-  if (!night.date || !bed || !wake) {
+  if (!night.date || !bed) {
     host.innerHTML = '<div class="line">Times go in, the night comes back.</div>';
+    return;
+  }
+  // A bedtime and no wake time is a night being logged as it starts. Draw the
+  // resolved bedtime — a wrong day is exactly what this block exists to catch —
+  // and say plainly that saving now leaves the night open.
+  if (!wake) {
+    const woke = M.interruptions(night).length;
+    host.innerHTML =
+      `<div class="line">${escapeHtml(stamp(bed))} &rarr; still going</div>` +
+      `<div class="sub">${woke ? `up ${woke}&times; so far · ` : ''}Save now, fill in the rest when you wake.</div>`;
     return;
   }
   if (wake <= bed) {
@@ -1181,7 +1300,7 @@ function openSheet(id){
     // Stored times carry their day, but the fields only show a clock — the day
     // comes back out of `date` through the same rule on save.
     const timeOf = (ts) => { const d = M.parseLocal(ts); return d ? timeValue(d) : ''; };
-    el('sheet-title').textContent = 'Edit night';
+    el('sheet-title').textContent = M.isOpen(night) ? 'Finish night' : 'Edit night';
     el('f-bed').value = timeOf(night.bedAt);
     // Stored as a moment, edited as a duration — turn it back into the answer
     // that was actually given.
@@ -1198,7 +1317,7 @@ function openSheet(id){
     el('delete-btn').style.display = 'none';
     // Recomputed on every open, not once at page load — a tab left open
     // overnight would otherwise still offer to log yesterday morning.
-    setSheetDate(todayValue());
+    setSheetDate(defaultSheetDate());
   }
 
   syncBreaks();
@@ -1234,8 +1353,9 @@ async function saveNight(){
   msg.style.display = 'none';
 
   const night = readSheet();
-  if (!night.date || !night.bedAt || !night.wakeAt) {
-    msg.textContent = 'A night needs a date, a bedtime and a wake time.';
+  // A bedtime is the whole floor: the wake time can arrive in the morning.
+  if (!night.date || !night.bedAt) {
+    msg.textContent = 'A night needs a date and a bedtime.';
     msg.style.display = 'block';
     return;
   }

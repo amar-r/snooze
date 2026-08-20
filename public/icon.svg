@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="SNOOZE">
+  <!-- A night as the app draws it: asleep, awake, asleep, on one clock axis. -->
+  <rect width="32" height="32" rx="7" fill="#0B0D14"/>
+  <rect x="5" y="13.5" width="9" height="5" rx="1.5" fill="#7C86FF"/>
+  <rect x="16" y="13.5" width="3" height="5" rx="1.5" fill="#F2A65A"/>
+  <rect x="21" y="13.5" width="6" height="5" rx="1.5" fill="#7C86FF"/>
+</svg>

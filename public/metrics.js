@@ -63,6 +63,15 @@
     return Array.isArray(n.interruptions) ? n.interruptions : [];
   }
 
+  // A night you have started and not yet finished: you logged getting into bed,
+  // and the wake time is still to come. Every derived number below is null for
+  // one of these, which is the honest answer — you cannot say how long a night
+  // was while it is still going on. Callers use this to tell "not finished yet"
+  // apart from "finished, but nothing worth reporting".
+  function isOpen(n) {
+    return !!bedStart(n) && !sleepEnd(n);
+  }
+
   // Interruptions as real intervals, clipped to the sleep window and merged.
   //
   // Both steps matter and both come from the same fact: these are hand-typed at
@@ -76,18 +85,19 @@
   // gets counted can't drift apart.
   function awakeIntervals(n) {
     var from = sleepStart(n);
+    // Null while the night is still open. There is nothing to clip the far end
+    // against then, so a length typed at 3am is taken at its word until a wake
+    // time arrives and the usual clipping applies.
     var to = sleepEnd(n);
-    if (!from || !to) return [];
+    if (!from) return [];
 
     var raw = interruptions(n).map(function (i) {
       var at = parseLocal(i && i.at);
       if (!at) return null;
       var mins = Number(i.minutes);
       var start = new Date(Math.max(at.getTime(), from.getTime()));
-      var end = new Date(Math.min(
-        at.getTime() + (Number.isFinite(mins) && mins > 0 ? mins : 0) * MINUTE,
-        to.getTime()
-      ));
+      var stop = at.getTime() + (Number.isFinite(mins) && mins > 0 ? mins : 0) * MINUTE;
+      var end = new Date(to ? Math.min(stop, to.getTime()) : stop);
       if (end <= start) return null;
       return { from: start, to: end };
     }).filter(Boolean).sort(function (a, b) { return a.from - b.from; });
@@ -216,6 +226,7 @@
     sleepStart: sleepStart,
     sleepEnd: sleepEnd,
     interruptions: interruptions,
+    isOpen: isOpen,
     awakeIntervals: awakeIntervals,
     inBedMinutes: inBedMinutes,
     asleepMinutes: asleepMinutes,
